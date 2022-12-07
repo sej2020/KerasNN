@@ -5,9 +5,22 @@ import tensorflow as tf
 from tensorflow import keras
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 from sklearn.datasets import fetch_california_housing
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+import os
+from scipy.stats import reciprocal
+from sklearn.model_selection import RandomizedSearchCV
+
+root_logdir = os.path.join(os.curdir,"NNruns")
+
+def get_run_logdir():
+    import time
+    run_id = time.strftime("run_%Y_%m_%d_%H_%M_%S")
+    return os.path.join(root_logdir, run_id)
+
+run_logdir = get_run_logdir()
 
 """
 Sequential API - Classification MLP
@@ -74,13 +87,13 @@ scaler = StandardScaler()
 x_train = scaler.fit_transform(x_train)
 x_valid = scaler.transform(x_valid)
 x_test = scaler.transform(x_test)
+x_new = x_test[:3]
 
 # model = keras.models.Sequential([keras.layers.Dense(30, activation="relu", input_shape=x_train.shape[1:]), keras.layers.Dense(1)])
 # model.compile(loss="mean_squared_error", optimizer="sgd")
 # history = model.fit(x_train, y_train, epochs=20, validation_data=(x_valid, y_valid))
 # mse_test = model.evaluate(x_test, y_test)
 
-x_new = x_test[:3]
 # y_pred = model.predict(x_new)
 
 # print(mse_test)
@@ -98,7 +111,9 @@ Functional API - Wide and Deep NN
 # model = keras.Model(inputs=[input_], outputs=[output])
 
 # model.compile(loss="mean_squared_error", optimizer="sgd")
-# history = model.fit(x_train, y_train, epochs=30, validation_data=(x_valid,y_valid))
+# tensorboard_cb = keras.callbacks.TensorBoard(run_logdir)
+
+# history = model.fit(x_train, y_train, epochs=30, validation_data=(x_valid,y_valid), callbacks=[tensorboard_cb])
 # metricdf = pd.DataFrame(history.history)
 # metricdf.plot()
 # plt.grid(True)
@@ -138,22 +153,47 @@ Functional API - Multi-Output
 """
 Subclassing API - Wide and Deep NN
 """
-class WideAndDeepModel(keras.Model):
+# class WideAndDeepModel(keras.Model):
     
-    def __init__(self, units=30, activation="relu", **kwargs):
-        super().__init__(**kwargs)
-        self.hidden1 = keras.layers.Dense(units, activation=activation)
-        self.hidden2 = keras.layers.Dense(units, activation=activation)
-        self.main_output = keras.layers.Dense(1)
-        self.aux_output = keras.layers.Dense(1)
+#     def __init__(self, units=30, activation="relu", **kwargs):
+#         super().__init__(**kwargs)
+#         self.hidden1 = keras.layers.Dense(units, activation=activation)
+#         self.hidden2 = keras.layers.Dense(units, activation=activation)
+#         self.main_output = keras.layers.Dense(1)
+#         self.aux_output = keras.layers.Dense(1)
 
-    def call(self, inputs):
-        input_A, input_B = inputs
-        hidden1 = self.hidden1(input_B)
-        hidden2 = self.hidden2(hidden1)
-        concat = keras.layers.concatenate([input_A, hidden2])
-        main_output = self.main_output(concat)
-        aux_output = self.aux_output(hidden2)
-        return main_output, aux_output
+#     def call(self, inputs):
+#         input_A, input_B = inputs
+#         hidden1 = self.hidden1(input_B)
+#         hidden2 = self.hidden2(hidden1)
+#         concat = keras.layers.concatenate([input_A, hidden2])
+#         main_output = self.main_output(concat)
+#         aux_output = self.aux_output(hidden2)
+#         return main_output, aux_output
 
-model = WideAndDeepModel()
+# model = WideAndDeepModel()
+"""
+Model builder - automates building simple NN
+"""
+def build_model(n_hidden=1, n_neurons=30,learning_rate=3e-3, input_shape=[8], model = keras.models.Sequential()):
+    model.add(keras.layers.InputLayer(input_shape=input_shape))
+    for layer in range(n_hidden):
+        model.add(keras.layers.Dense(n_neurons,activation='relu'))
+    model.add(keras.layers.Dense(1))
+    optimizer = keras.optimizers.SGD(lr=learning_rate)
+    model.compile(loss="mse", optimizer=optimizer)
+    return model
+
+keras_reg = keras.wrappers.scikit_learn.KerasRegressor(build_model)
+# keras_reg.fit(x_train, y_train, epochs=100, validation_data=(x_valid, y_valid), callbacks=[keras.callbacks.EarlyStopping(patience=10)])
+# mse_test = keras_reg.score(x_test, y_test)
+# y_pred = keras_reg.predict(x_new)
+
+"""
+Hyperparameter Tuning
+"""
+
+param_distribs = {"n_hidden": [0, 1, 2, 3], "n_neurons": np.arange(1,100), "learning_rate": reciprocal(3e-4,3e-2),}
+
+rnd_searc_cv = RandomizedSearchCV(keras_reg, param_distribs, n_iter=10, cv=3)
+rnd_searc_cv.fit(x_train, y_train, epochs=100, validation_data=(x_valid, y_valid), callbacks=[keras.callbacks.EarlyStopping(patience=10)])
