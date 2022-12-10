@@ -12,15 +12,7 @@ from sklearn.preprocessing import StandardScaler
 import os
 from scipy.stats import reciprocal
 from sklearn.model_selection import RandomizedSearchCV
-
-root_logdir = os.path.join(os.curdir,"NNruns")
-
-def get_run_logdir():
-    import time
-    run_id = time.strftime("run_%Y_%m_%d_%H_%M_%S")
-    return os.path.join(root_logdir, run_id)
-
-run_logdir = get_run_logdir()
+import datetime
 
 """
 Sequential API - Classification MLP
@@ -45,7 +37,12 @@ Sequential API - Classification MLP
 
 # model.compile(loss="sparse_categorical_crossentropy", optimizer="sgd", metrics=["accuracy"])
 
-# history = model.fit(x_train, y_train, epochs=10, validation_data=(x_valid, y_valid))
+log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
+tensorboard_callback = keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+# early_stop = keras.callbacks.EarlyStopping(patience=10)
+
+# history = model.fit(x_train, y_train, epochs=100, validation_data=(x_valid, y_valid), callbacks=[tensorboard_callback, early_stop])
+
 # print(history.params)
 # print(history.epoch)
 # print(history.history)
@@ -78,16 +75,16 @@ Sequential API - Classification MLP
 Sequential API - Regression MLP
 """
 
-housing = fetch_california_housing()
+# housing = fetch_california_housing()
 
-x_train_full, x_test, y_train_full, y_test = train_test_split(housing.data, housing.target)
-x_train, x_valid, y_train, y_valid = train_test_split(x_train_full, y_train_full)
+# x_train_full, x_test, y_train_full, y_test = train_test_split(housing.data, housing.target)
+# x_train, x_valid, y_train, y_valid = train_test_split(x_train_full, y_train_full)
 
-scaler = StandardScaler()
-x_train = scaler.fit_transform(x_train)
-x_valid = scaler.transform(x_valid)
-x_test = scaler.transform(x_test)
-x_new = x_test[:3]
+# scaler = StandardScaler()
+# x_train = scaler.fit_transform(x_train)
+# x_valid = scaler.transform(x_valid)
+# x_test = scaler.transform(x_test)
+# x_new = x_test[:3]
 
 # model = keras.models.Sequential([keras.layers.Dense(30, activation="relu", input_shape=x_train.shape[1:]), keras.layers.Dense(1)])
 # model.compile(loss="mean_squared_error", optimizer="sgd")
@@ -175,16 +172,16 @@ Subclassing API - Wide and Deep NN
 """
 Model builder - automates building simple NN
 """
-def build_model(n_hidden=1, n_neurons=30,learning_rate=3e-3, input_shape=[8], model = keras.models.Sequential()):
-    model.add(keras.layers.InputLayer(input_shape=input_shape))
-    for layer in range(n_hidden):
-        model.add(keras.layers.Dense(n_neurons,activation='relu'))
-    model.add(keras.layers.Dense(1))
-    optimizer = keras.optimizers.SGD(lr=learning_rate)
-    model.compile(loss="mse", optimizer=optimizer)
-    return model
+# def build_model(n_hidden=1, n_neurons=30,learning_rate=3e-3, input_shape=[8], model = keras.models.Sequential()):
+#     model.add(keras.layers.InputLayer(input_shape=input_shape))
+#     for layer in range(n_hidden):
+#         model.add(keras.layers.Dense(n_neurons,activation='relu'))
+#     model.add(keras.layers.Dense(1))
+#     optimizer = keras.optimizers.SGD(lr=learning_rate)
+#     model.compile(loss="mse", optimizer=optimizer)
+#     return model
 
-keras_reg = keras.wrappers.scikit_learn.KerasRegressor(build_model)
+# keras_reg = keras.wrappers.scikit_learn.KerasRegressor(build_model)
 # keras_reg.fit(x_train, y_train, epochs=100, validation_data=(x_valid, y_valid), callbacks=[keras.callbacks.EarlyStopping(patience=10)])
 # mse_test = keras_reg.score(x_test, y_test)
 # y_pred = keras_reg.predict(x_new)
@@ -193,7 +190,25 @@ keras_reg = keras.wrappers.scikit_learn.KerasRegressor(build_model)
 Hyperparameter Tuning
 """
 
-param_distribs = {"n_hidden": [0, 1, 2, 3], "n_neurons": np.arange(1,100), "learning_rate": reciprocal(3e-4,3e-2),}
+# param_distribs = {"n_hidden": [0, 1, 2, 3], "n_neurons": np.arange(1,100), "learning_rate": reciprocal(3e-4,3e-2),}
 
-rnd_searc_cv = RandomizedSearchCV(keras_reg, param_distribs, n_iter=10, cv=3)
-rnd_searc_cv.fit(x_train, y_train, epochs=100, validation_data=(x_valid, y_valid), callbacks=[keras.callbacks.EarlyStopping(patience=10)])
+# rnd_searc_cv = RandomizedSearchCV(keras_reg, param_distribs, n_iter=10, cv=3)
+# rnd_searc_cv.fit(x_train, y_train, epochs=100, validation_data=(x_valid, y_valid), callbacks=[keras.callbacks.EarlyStopping(patience=10)])
+
+"""
+Batch Normalization
+"""
+# model = keras.models.Sequential(
+#         [
+#         keras.layers.Flatten(input_shape=[28,28]),
+#         keras.layers.BatchNormalization(),
+#         keras.layers.Dense(300, activation="elu", kernel_initializer="he_normal"),
+#         keras.layers.BatchNormalization(),
+#         keras.layers.Dense(100, activation="elu", kernel_initializer="he_normal"),
+#         keras.layers.BatchNormalization(),
+#         keras.layers.Dense(10, activation="softmax")
+#         ]
+#     )
+# print(model.summary())
+
+# print([(var.name, var.trainable) for var in model.layers[1].variables])
